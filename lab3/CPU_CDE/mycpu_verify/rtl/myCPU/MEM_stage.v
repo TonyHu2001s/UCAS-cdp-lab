@@ -13,7 +13,9 @@ module mem_stage(
     output                         ms_to_ws_valid,
     output [`MS_TO_WS_BUS_WD -1:0] ms_to_ws_bus  ,
     //from data-sram
-    input  [31                 :0] data_sram_rdata
+    input  [31                 :0] data_sram_rdata,
+	//to ds
+	output [`MS_TO_DS_BUS_WD -1:0] ms_to_ds_bus
 );
 
 reg         ms_valid;
@@ -61,5 +63,10 @@ assign mem_result = data_sram_rdata;
 
 assign ms_final_result = ms_res_from_mem ? mem_result
                                          : ms_alu_result;
+										 
+assign ms_to_ds_bus = {`MS_TO_DS_BUS_WD{ms_valid}} &
+					  {ms_dest		,  //36:32
+					   ms_final_result //31:0
+					  };
 
 endmodule

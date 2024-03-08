@@ -16,7 +16,9 @@ module exe_stage(
     output        data_sram_en   ,
     output [ 3:0] data_sram_wen  ,
     output [31:0] data_sram_addr ,
-    output [31:0] data_sram_wdata
+    output [31:0] data_sram_wdata,
+	//to ds
+	output [`ES_TO_DS_BUS_WD -1:0] es_to_ds_bus
 );
 
 reg         es_valid      ;
@@ -99,5 +101,10 @@ assign data_sram_en    = 1'b1;
 assign data_sram_wen   = es_mem_we&&es_valid ? 4'hf : 4'h0;
 assign data_sram_addr  = es_alu_result;
 assign data_sram_wdata = es_rt_value;
+
+assign es_to_ds_bus = {`ES_TO_DS_BUS_WD{es_valid}} &
+					  {es_dest		,  //36:32
+					   es_alu_result   //31:0
+					  };
 
 endmodule

@@ -35,6 +35,9 @@ wire [`DS_TO_ES_BUS_WD -1:0] ds_to_es_bus;
 wire [`ES_TO_MS_BUS_WD -1:0] es_to_ms_bus;
 wire [`MS_TO_WS_BUS_WD -1:0] ms_to_ws_bus;
 wire [`WS_TO_RF_BUS_WD -1:0] ws_to_rf_bus;
+wire [`ES_TO_DS_BUS_WD -1:0] es_to_ds_bus;
+wire [`MS_TO_DS_BUS_WD -1:0] ms_to_ds_bus;
+wire [`WS_TO_DS_BUS_WD -1:0] ws_to_ds_bus;
 wire [`BR_BUS_WD       -1:0] br_bus;
 
 // IF stage
@@ -71,7 +74,13 @@ id_stage id_stage(
     //to fs
     .br_bus         (br_bus         ),
     //to rf: for write back
-    .ws_to_rf_bus   (ws_to_rf_bus   )
+    .ws_to_rf_bus   (ws_to_rf_bus   ),
+	//from es
+	.es_to_ds_bus	(es_to_ds_bus	),
+	//from ms
+	.ms_to_ds_bus	(ms_to_ds_bus	),
+	//from ws
+	.ws_to_ds_bus	(ws_to_ds_bus	)
 );
 // EXE stage
 exe_stage exe_stage(
@@ -90,7 +99,9 @@ exe_stage exe_stage(
     .data_sram_en   (data_sram_en   ),
     .data_sram_wen  (data_sram_wen  ),
     .data_sram_addr (data_sram_addr ),
-    .data_sram_wdata(data_sram_wdata)
+    .data_sram_wdata(data_sram_wdata),
+	//to ds
+	.es_to_ds_bus	(es_to_ds_bus	)
 );
 // MEM stage
 mem_stage mem_stage(
@@ -106,7 +117,9 @@ mem_stage mem_stage(
     .ms_to_ws_valid (ms_to_ws_valid ),
     .ms_to_ws_bus   (ms_to_ws_bus   ),
     //from data-sram
-    .data_sram_rdata(data_sram_rdata)
+    .data_sram_rdata(data_sram_rdata),
+	//to ds
+	.ms_to_ds_bus	(ms_to_ds_bus	)
 );
 // WB stage
 wb_stage wb_stage(
@@ -123,7 +136,9 @@ wb_stage wb_stage(
     .debug_wb_pc      (debug_wb_pc      ),
     .debug_wb_rf_wen  (debug_wb_rf_wen  ),
     .debug_wb_rf_wnum (debug_wb_rf_wnum ),
-    .debug_wb_rf_wdata(debug_wb_rf_wdata)
+    .debug_wb_rf_wdata(debug_wb_rf_wdata),
+	//to ds
+	.ws_to_ds_bus	(ws_to_ds_bus	)
 );
 
 endmodule

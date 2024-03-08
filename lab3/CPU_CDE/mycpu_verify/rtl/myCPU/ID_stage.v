@@ -15,7 +15,13 @@ module id_stage(
     //to fs
     output [`BR_BUS_WD       -1:0] br_bus        ,
     //to rf: for write back
-    input  [`WS_TO_RF_BUS_WD -1:0] ws_to_rf_bus
+    input  [`WS_TO_RF_BUS_WD -1:0] ws_to_rf_bus  ,
+	//from es
+	input  [`ES_TO_DS_BUS_WD -1:0] es_to_ds_bus  ,
+	//from ms
+	input  [`MS_TO_DS_BUS_WD -1:0] ms_to_ds_bus  ,
+	//from ws
+	input  [`WS_TO_DS_BUS_WD -1:0] ws_to_ds_bus
 );
 
 reg         ds_valid   ;
@@ -45,8 +51,10 @@ wire [11:0] alu_op;
 wire        load_op;
 wire        src1_is_sa;
 wire        src1_is_pc;
+wire		src1_is_rs;
 wire        src2_is_imm;
 wire        src2_is_8;
+wire		src2_is_rt;
 wire        res_from_mem;
 wire        gr_we;
 wire        mem_we;
@@ -90,7 +98,11 @@ wire        inst_jal;
 wire        inst_jr;
 
 wire        dst_is_r31;  
-wire        dst_is_rt;   
+wire        dst_is_rt;
+wire		dst_is_none;   
+
+wire		rs_is_stall;
+wire		rt_is_stall;
 
 wire [ 4:0] rf_raddr1;
 wire [31:0] rf_rdata1;
@@ -116,7 +128,7 @@ assign ds_to_es_bus = {alu_op      ,  //135:124
                        ds_pc          //31 :0
                       };
 
-assign ds_ready_go    = 1'b1;
+assign ds_ready_go    = (~rs_is_stall) && (~rt_is_stall);
 assign ds_allowin     = !ds_valid || ds_ready_go && es_allowin;
 assign ds_to_es_valid = ds_valid && ds_ready_go;
 always @(posedge clk) begin
@@ -184,15 +196,30 @@ assign alu_op[11] = inst_lui;
 assign load_op		= inst_lw;
 assign src1_is_sa   = inst_sll   | inst_srl | inst_sra;
 assign src1_is_pc   = inst_jal;
+assign src1_is_rs	= ~src1_is_pc & ~src1_is_sa;
 assign src2_is_imm  = inst_addiu | inst_lui | inst_lw | inst_sw;
 assign src2_is_8    = inst_jal;
+assign src2_is_rt	= ~src2_is_8 & ~dst_is_rt;
 assign res_from_mem = inst_lw;
 assign dst_is_r31   = inst_jal;
 assign dst_is_rt    = inst_addiu | inst_lui | inst_lw;
+assign dst_is_none	= inst_sw | inst_beq | inst_bne | inst_jr;
 assign gr_we        = ~inst_sw & ~inst_beq & ~inst_bne & ~inst_jr;
 assign mem_we       = inst_sw;
+assign rs_is_stall= src1_is_rs 
+					&& ((rs == es_to_ds_bus[`ES_TO_DS_BUS_WD -1:`ES_TO_DS_BUS_WD -5]) 
+					| (rs == ms_to_ds_bus[`MS_TO_DS_BUS_WD -1:`MS_TO_DS_BUS_WD -5]) 
+					| (rs == ws_to_ds_bus[`WS_TO_DS_BUS_WD -1:`WS_TO_DS_BUS_WD -5]))
+					&& ~(rs == 5'b0);
+assign rt_is_stall= src2_is_rt
+					&& ((rt == es_to_ds_bus[`ES_TO_DS_BUS_WD -1:`ES_TO_DS_BUS_WD -5]) 
+					| (rt == ms_to_ds_bus[`MS_TO_DS_BUS_WD -1:`MS_TO_DS_BUS_WD -5]) 
+					| (rt == ws_to_ds_bus[`WS_TO_DS_BUS_WD -1:`WS_TO_DS_BUS_WD -5]))
+					&& ~(rt == 5'b0);
+					
 
-assign dest         = dst_is_r31 ? 5'd31 :
+assign dest         = dst_is_none ? 5'd0 :
+					  dst_is_r31 ? 5'd31 :
                       dst_is_rt  ? rt    : 
                                    rd;
 
