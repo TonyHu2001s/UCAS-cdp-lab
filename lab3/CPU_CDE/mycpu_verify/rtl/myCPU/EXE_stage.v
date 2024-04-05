@@ -103,7 +103,8 @@ assign data_sram_addr  = es_alu_result;
 assign data_sram_wdata = es_rt_value;
 
 assign es_to_ds_bus = {`ES_TO_DS_BUS_WD{es_valid}} &
-					  {es_dest		,  //36:32
+					  {es_res_from_mem,  //37:37
+					   es_dest		,  //36:32
 					   es_alu_result   //31:0
 					  };
 

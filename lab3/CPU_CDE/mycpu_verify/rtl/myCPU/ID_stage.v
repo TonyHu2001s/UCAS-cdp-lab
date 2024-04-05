@@ -44,6 +44,7 @@ assign {rf_we   ,  //37:37
         rf_wdata   //31:0
        } = ws_to_rf_bus;
 
+wire		br_stall;
 wire        br_taken;
 wire [31:0] br_target;
 
@@ -101,8 +102,9 @@ wire        dst_is_r31;
 wire        dst_is_rt;
 wire		dst_is_none;   
 
-wire		rs_is_stall;
-wire		rt_is_stall;
+// wire		rs_is_stall;
+// wire		rt_is_stall;
+wire		lw_stall;
 
 wire [ 4:0] rf_raddr1;
 wire [31:0] rf_rdata1;
@@ -111,7 +113,7 @@ wire [31:0] rf_rdata2;
 
 wire        rs_eq_rt;
 
-assign br_bus       = {br_taken,br_target};
+assign br_bus       = {br_stall,br_taken,br_target};
 
 assign ds_to_es_bus = {alu_op      ,  //135:124
                        load_op     ,  //123:123
@@ -128,7 +130,8 @@ assign ds_to_es_bus = {alu_op      ,  //135:124
                        ds_pc          //31 :0
                       };
 
-assign ds_ready_go    = (~rs_is_stall) && (~rt_is_stall);
+// assign ds_ready_go    = (~rs_is_stall) && (~rt_is_stall);
+assign ds_ready_go    = ~lw_stall;
 assign ds_allowin     = !ds_valid || ds_ready_go && es_allowin;
 assign ds_to_es_valid = ds_valid && ds_ready_go;
 always @(posedge clk) begin
@@ -206,17 +209,19 @@ assign dst_is_rt    = inst_addiu | inst_lui | inst_lw;
 assign dst_is_none	= inst_sw | inst_beq | inst_bne | inst_jr;
 assign gr_we        = ~inst_sw & ~inst_beq & ~inst_bne & ~inst_jr;
 assign mem_we       = inst_sw;
-assign rs_is_stall= src1_is_rs 
-					&& ((rs == es_to_ds_bus[`ES_TO_DS_BUS_WD -1:`ES_TO_DS_BUS_WD -5]) 
-					| (rs == ms_to_ds_bus[`MS_TO_DS_BUS_WD -1:`MS_TO_DS_BUS_WD -5]) 
-					| (rs == ws_to_ds_bus[`WS_TO_DS_BUS_WD -1:`WS_TO_DS_BUS_WD -5]))
-					&& ~(rs == 5'b0);
-assign rt_is_stall= src2_is_rt
-					&& ((rt == es_to_ds_bus[`ES_TO_DS_BUS_WD -1:`ES_TO_DS_BUS_WD -5]) 
-					| (rt == ms_to_ds_bus[`MS_TO_DS_BUS_WD -1:`MS_TO_DS_BUS_WD -5]) 
-					| (rt == ws_to_ds_bus[`WS_TO_DS_BUS_WD -1:`WS_TO_DS_BUS_WD -5]))
-					&& ~(rt == 5'b0);
-					
+// assign rs_is_stall= src1_is_rs 
+					// && ((rs == es_to_ds_bus[`ES_TO_DS_BUS_WD -1:`ES_TO_DS_BUS_WD -5]) 
+					// | (rs == ms_to_ds_bus[`MS_TO_DS_BUS_WD -1:`MS_TO_DS_BUS_WD -5]) 
+					// | (rs == ws_to_ds_bus[`WS_TO_DS_BUS_WD -1:`WS_TO_DS_BUS_WD -5]))
+					// && ~(rs == 5'b0);
+// assign rt_is_stall= src2_is_rt
+					// && ((rt == es_to_ds_bus[`ES_TO_DS_BUS_WD -1:`ES_TO_DS_BUS_WD -5]) 
+					// | (rt == ms_to_ds_bus[`MS_TO_DS_BUS_WD -1:`MS_TO_DS_BUS_WD -5]) 
+					// | (rt == ws_to_ds_bus[`WS_TO_DS_BUS_WD -1:`WS_TO_DS_BUS_WD -5]))
+					// && ~(rt == 5'b0);
+assign lw_stall = es_to_ds_bus[`ES_TO_DS_BUS_WD -1] && 
+					((rs == es_to_ds_bus[`ES_TO_DS_BUS_WD -2:`ES_TO_DS_BUS_WD -6]) | 
+					 (rt == es_to_ds_bus[`ES_TO_DS_BUS_WD -2:`ES_TO_DS_BUS_WD -6]));
 
 assign dest         = dst_is_none ? 5'd0 :
 					  dst_is_r31 ? 5'd31 :
@@ -236,10 +241,23 @@ regfile u_regfile(
     .wdata  (rf_wdata )
     );
 
-assign rs_value = rf_rdata1;
-assign rt_value = rf_rdata2;
+// assign rs_value = rf_rdata1;
+// assign rt_value = rf_rdata2;
+
+assign rs_value = (rs == 5'b0) ? 32'b0 :
+					(rs == es_to_ds_bus[`ES_TO_DS_BUS_WD -2:`ES_TO_DS_BUS_WD -6]) ? es_to_ds_bus[31:0] :
+					(rs == ms_to_ds_bus[`MS_TO_DS_BUS_WD -1:`MS_TO_DS_BUS_WD -5]) ? ms_to_ds_bus[31:0] :
+					(rs == ws_to_ds_bus[`WS_TO_DS_BUS_WD -1:`WS_TO_DS_BUS_WD -5]) ? ws_to_ds_bus[31:0] :
+					rf_rdata1;
+assign rt_value = (rt == 5'b0) ? 32'b0 :
+					(rt == es_to_ds_bus[`ES_TO_DS_BUS_WD -2:`ES_TO_DS_BUS_WD -6]) ? es_to_ds_bus[31:0] :
+					(rt == ms_to_ds_bus[`MS_TO_DS_BUS_WD -1:`MS_TO_DS_BUS_WD -5]) ? ms_to_ds_bus[31:0] :
+					(rt == ws_to_ds_bus[`WS_TO_DS_BUS_WD -1:`WS_TO_DS_BUS_WD -5]) ? ws_to_ds_bus[31:0] :
+					rf_rdata2;
 
 assign rs_eq_rt = (rs_value == rt_value);
+// assign br_stall = (rs_is_stall | rt_is_stall) && (inst_beq | inst_bne | inst_jr) && ~reset;
+assign br_stall = 1'b0;
 assign br_taken = (   inst_beq  &&  rs_eq_rt
                    || inst_bne  && !rs_eq_rt
                    || inst_jal
