@@ -1,4 +1,5 @@
 module alu(
+  input         clk,
   input  [11:0] alu_op,
   input  [31:0] alu_src1,
   input  [31:0] alu_src2,
@@ -17,6 +18,7 @@ wire op_sll;   //逻辑左移
 wire op_srl;   //逻辑右移
 wire op_sra;   //算术右移
 wire op_lui;   //立即数置于高半部分
+
 
 // control code decomposition
 assign op_add  = alu_op[ 0];
@@ -83,6 +85,7 @@ assign sll_result = alu_src2 << alu_src1[4:0];
 assign sr64_result = {{32{op_sra & alu_src2[31]}}, alu_src2[31:0]} >> alu_src1[4:0];
 
 assign sr_result   = sr64_result[31:0];
+
 
 // final result mux
 assign alu_result = ({32{op_add|op_sub}} & add_sub_result)
