@@ -23,12 +23,21 @@ wire        ms_ready_go;
 
 reg [`ES_TO_MS_BUS_WD -1:0] es_to_ms_bus_r;
 wire        ms_res_from_mem;
-wire        ms_gr_we;
+wire [ 3:0] ms_gr_we;
 wire [ 4:0] ms_dest;
 wire [31:0] ms_alu_result;
 wire [31:0] ms_pc;
-assign {ms_res_from_mem,  //70:70
-        ms_gr_we       ,  //69:69
+wire		ms_load_byte;
+wire		ms_load_half;
+wire		ms_load_unsigned;
+wire [ 1:0] ms_mem_sel;
+
+assign {ms_mem_sel     ,  //78:77
+		ms_load_unsigned, //76:76
+		ms_load_half   ,  //75:75
+		ms_load_byte   ,  //74:74
+		ms_res_from_mem,  //73:73
+        ms_gr_we       ,  //72:69
         ms_dest        ,  //68:64
         ms_alu_result  ,  //63:32
         ms_pc             //31:0
@@ -36,8 +45,10 @@ assign {ms_res_from_mem,  //70:70
 
 wire [31:0] mem_result;
 wire [31:0] ms_final_result;
+wire [ 7:0] ms_byte_result;
+wire [15:0] ms_half_result;
 
-assign ms_to_ws_bus = {ms_gr_we       ,  //69:69
+assign ms_to_ws_bus = {ms_gr_we       ,  //72:69
                        ms_dest        ,  //68:64
                        ms_final_result,  //63:32
                        ms_pc             //31:0
@@ -59,14 +70,22 @@ always @(posedge clk) begin
     end
 end
 
-assign mem_result = data_sram_rdata;
+assign ms_byte_result = {8{ms_mem_sel==2'b00}} & data_sram_rdata[ 7: 0] |
+						{8{ms_mem_sel==2'b01}} & data_sram_rdata[15: 8] |
+						{8{ms_mem_sel==2'b10}} & data_sram_rdata[23:16] |
+						{8{ms_mem_sel==2'b11}} & data_sram_rdata[31:24] ;
+assign ms_half_result = {16{ms_mem_sel == 2'b00}} & data_sram_rdata[15: 0] |
+						{16{ms_mem_sel == 2'b10}} & data_sram_rdata[31:16] ;
+assign mem_result = ms_load_byte ? {{24{ms_byte_result[7]&(~ms_load_unsigned)}},ms_byte_result} : 
+					ms_load_half ? {{16{ms_half_result[15]&(~ms_load_unsigned)}},ms_half_result} : 
+					data_sram_rdata;
 
 assign ms_final_result = ms_res_from_mem ? mem_result
                                          : ms_alu_result;
 										 
-assign ms_to_ds_bus = {`MS_TO_DS_BUS_WD{ms_valid}} &
-					  {ms_dest		,  //36:32
-					   ms_final_result //31:0
+assign ms_to_ds_bus = {{4{ms_valid}}&ms_gr_we,  //40:37
+					   ms_dest				  ,  //36:32
+					   ms_final_result 			 //31: 0
 					  };
 
 endmodule
